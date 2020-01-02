@@ -46,6 +46,8 @@ A more detailed work log in Hebrew can be found [here](https://docs.google.com/d
 
 I've decided that in addition to the work log I wrote on Google Docs in Hebrew until now (and which was required by the project guidelines), I'll create a public GitHub repository where I'll document my progress in English (starting now at least). This is my first serious repository so it's going to take a while until I learn the ropes.
 
+I uploaded all the schematics, programs and other files regarding the project and will upload images of the circuits in the future.
+
 My progress until now:
 * Schematics for the entire project
 
