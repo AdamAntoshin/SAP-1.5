@@ -5,8 +5,8 @@ An upgaded version of the SAP-1 8-bit computer, with more memory, an input regis
 
 ## Links
 
-* [Work Log]()
-* [A more detailed work log in Hebrew]()
+* [Work Log](/Documentation/work_log.md)
+* [A more detailed work log in Hebrew](https://docs.google.com/document/d/1f-CUX1oLNrWuMgMoHW-Djt5JsNIpseODwH8WzywEzs0/edit?usp=sharing)
 
 ## Contributing
 
