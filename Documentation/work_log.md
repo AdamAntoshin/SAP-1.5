@@ -32,6 +32,8 @@ The specs of the final project will be (as of 02/01/20):
 
 * I/O interface with Arduino
 
+* 15 instructions (including NOP), option for 113 more (128 possible instructuions). Example: LDA 15 (load value in address 15 to register A).
+
 I then began building the circuit on breadboards. After building a few parts of the computer and going on a short haitus, I realized I made a grave mistake while building my circuit without drawing schematics first. I've then drawn my schematics and made sure to draw one before building each part.
 
 After a bare-bones version of the computer was built, testing began (don't worry, I tested each part individually). It could run basic programs successfuly, but the main problem was that sometimes the counter in the control unit would skip a beat, throwing the program execution off-course. My main theory was that the clock signals weren't clean enough, but I couldn't test that since I didn't have an oscilloscope at the time.
