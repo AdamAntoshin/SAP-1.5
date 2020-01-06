@@ -72,3 +72,13 @@ My progress until now:
   * Output
   
 * Plans for 2 more boards for the Control Unit and Arduino Driver
+
+## 02/01/20 (17:00)
+
+I have soldered all the necessary IC sockets and components for the A register and the flags register (only the register itself). In addition, I made all the necessary connections with wire-wrap. I've yet to test the circuit.
+
+## 06/01/20 (10:00)
+
+I have uploaded images of my boards to the documentation folder and will continute to update them every time I make significant changes/progress. I've also updated the work log with my progress on 02/01 since I forgot to do so.
+
+I'm considering starting to work on the wiki. In the end of the project, I'll have to hand in a booklet detailing my progress, so writing a wiki could help me later with writing my more detailed booklet. I'll probably set up the structure and begin writing when I have the chance.
