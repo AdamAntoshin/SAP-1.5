@@ -1,5 +1,3 @@
-This repository was created recently and is a WIP.
-
 # SAP-1.5
 An upgaded version of the SAP-1 (Simple As Possible) 8-bit computer. Its architecture was proposed by Albert Paul Malvino in 1977 in his book _"Digital Computer Electronics"_, and a series of YouTube videos documenting the building process of the computer was created by Ben Eater in 2016-2018.
 
