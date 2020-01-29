@@ -1,11 +1,21 @@
 /*
-Initialize and program microcode into the EEPROMs in the control unit.
+ * 8-bit computer project (SAP-1.5)
+ * -------------------------------------
+ * 
+ * Program microcode on EEPROM chips for control unit.
+ * 
+ * TODO: incorporate SPI for writing purposes
+ * 
+ * -Adam Antoshin 2020
 */
 
-//Program most significant byte of control words or least significant byte
-#define MSBYTE true
+//Program either most or least significant byte of control words
+#define MSBYTE false
 
-//Define I/O and programming properties
+//wipe EEPROM memory before programming
+#define CLEAR_BEFORE_PROG true
+
+//IO parameters
 #define SERIAL_BAUD_RATE 115200
 #define SHIFT_DATA_PIN 2
 #define SHIFT_LATCH_PIN 3
@@ -14,10 +24,12 @@ Initialize and program microcode into the EEPROMs in the control unit.
 #define EEPROM_D0 5
 #define EEPROM_D7 12
 #define WRITE_ENABLE_PIN 13
+
+//EEPROM parameters
 #define PROG_DELAY 20
 #define EEPROM_MEM 8192
 
-//Define uC properties
+//ucode parameters
 #define STEPS_NUM 8
 #define INSTRUCTIONS_NUM 15
 #define F_STATES_NUM 4
@@ -28,7 +40,7 @@ Initialize and program microcode into the EEPROMs in the control unit.
 #define JZ 0b00001100
 #define JC 0b00001101
 
-//Define control signals for uC
+//control word definition
 #define HLT 0b1000000000000000
 #define AI  0b0100000000000000
 #define AO  0b0010000000000000
@@ -46,7 +58,7 @@ Initialize and program microcode into the EEPROMs in the control unit.
 #define J   0b0000000000000010
 #define FI  0b0000000000000001
 
-//uC template (without conditional jumps) stored in flash to save memory
+//ucode template (no conditional jumps)
 const PROGMEM uint16_t UCODE_TEMPLATE[INSTRUCTIONS_NUM][STEPS_NUM] = 
 {
     {MI|CO,  II|RO|CE,   CE,        0,         0,              0,              0,              0},  //00000000 - NOP
@@ -66,10 +78,10 @@ const PROGMEM uint16_t UCODE_TEMPLATE[INSTRUCTIONS_NUM][STEPS_NUM] =
     {MI|CO,  II|RO|CE,   HLT,       0,         0,              0,              0,              0}   //00001110 - HLT
 };
 
-//Final uC array
+//final ucode array
 uint16_t ucode[F_STATES_NUM][INSTRUCTIONS_NUM][STEPS_NUM];
 
-//Initialize I/O (serial comm, pin modes...)
+//initialize Arduino IO
 void init_IO() {
   Serial.begin(SERIAL_BAUD_RATE);
   pinMode(SHIFT_DATA_PIN, OUTPUT);
@@ -80,27 +92,29 @@ void init_IO() {
   pinMode(WRITE_ENABLE_PIN, OUTPUT);
   }
 
-//Calculate EEPROM programming time and print message
-void print_init_msg(uint16_t num, uint16_t del) {
+//estimate programming time
+float est_prog_time(int num, int del) {
   float est = del / 1000.0;
   est *= num;
+
+  return est;
+  }
   
-  Serial.print("Estimated programming time: "); Serial.print(est); Serial.println(" seconds\n");
+//print initializing message
+void print_init_msg(float p_time) {
+  Serial.print("Estimated programming time: "); Serial.print(p_time); Serial.println(" seconds\n");
   
   if (MSBYTE == true) Serial.println("PROGRAMMING MOST SIGNIFICANT BYTE OF CONTROL WORDS...");
   else Serial.println("PROGRAMMING LEAST SIGNIFICANT BYTE OF CONTROL WORDS...");
   }
 
-//calculate EEPROM erasing time and print message
-void print_clear_msg(uint16_t del) {
-  float est = del / 1000.0;
-  est *= EEPROM_MEM;
-  
-  Serial.print("Estimated erasing time: "); Serial.print(est); Serial.println(" seconds\n");
+//print erasing message
+void print_clear_msg(float c_time) {
+  Serial.print("Estimated erasing time: "); Serial.print(c_time); Serial.println(" seconds\n");
   Serial.println("ERASING...\n");
   }
 
-//Take uC template, modify for different flag states and put in final array
+//merge conditional control words with ucode template to build final ucode
 void init_ucode() {
   memcpy_P(ucode[F_C0Z0], UCODE_TEMPLATE, sizeof(UCODE_TEMPLATE));
   ucode[F_C0Z0][JZ][2] = CE;
@@ -123,66 +137,60 @@ void init_ucode() {
   ucode[F_C1Z1][JC][3] = RO|J;
   }
 
-//Set EEPROM address to point to and output enable pin state (for either programming or reading)
-void set_address(uint16_t address, bool output) {
+//output address with 595 shift registers and either output or input contents
+void set_address(int address, bool output) {
   digitalWrite(OUTPUT_ENABLE_PIN, !output);
-  
   shiftOut(SHIFT_DATA_PIN, SHIFT_CLOCK_PIN, MSBFIRST, (address >> 8));
   shiftOut(SHIFT_DATA_PIN, SHIFT_CLOCK_PIN, MSBFIRST, address);
-  
   digitalWrite(SHIFT_LATCH_PIN, LOW);
   digitalWrite(SHIFT_LATCH_PIN, HIGH);
   digitalWrite(SHIFT_LATCH_PIN, LOW);
   }
 
-//Write a byte of data into EEPROM
-void write_EEPROM(uint16_t address, uint8_t data) {
+//write byte to EEPROM memory
+void write_EEPROM(uint16_t address, byte data) {
   Serial.print(address, HEX);
   Serial.print("  ");
   Serial.println(data, HEX);
-  
   set_address(address, false);
-  
-  for (uint8_t pin = EEPROM_D0; pin <= EEPROM_D7; pin++) {
+  for (int pin = EEPROM_D0; pin <= EEPROM_D7; pin++) {
     digitalWrite(pin, data & 0x01);
     pinMode(pin, OUTPUT);
     data = data >> 1;
     }
-    
   digitalWrite(WRITE_ENABLE_PIN, LOW);
   delayMicroseconds(1);
   digitalWrite(WRITE_ENABLE_PIN, HIGH);
   delay(PROG_DELAY);
   }
 
-//Read a byte of data from EEPROM
-uint8_t read_EEPROM(uint16_t address) {
-  for (uint8_t pin = EEPROM_D0; pin <= EEPROM_D7; pin++) pinMode(pin, INPUT);
+//read byte from EEPROM memory
+uint8_t read_EEPROM(int address) {
+  for (int pin = EEPROM_D0; pin <= EEPROM_D7; pin++) pinMode(pin, INPUT);
   
   set_address(address, true);
   
   uint8_t data = 0;
-  
-  for (uint8_t pin = EEPROM_D7; pin >= EEPROM_D0; pin-=1) 
+  for (int pin = EEPROM_D7; pin >= EEPROM_D0; pin-=1) {
     data = (data << 1) + digitalRead(pin);
-    
+    }
   return data;
   }
 
-//Erase EEPROM contents
+//wipe EEPROM memory
 void clear_EEPROM() {
-  print_clear_msg(PROG_DELAY);
-  
-  for (uint16_t address = 0; address < EEPROM_MEM; address++) {
+  float clear_time = est_prog_time(EEPROM_MEM, PROG_DELAY);
+  print_clear_msg(clear_time);
+  for (int address = 0; address < EEPROM_MEM; address++) {
     write_EEPROM(address, 0);
     Serial.println(address);
     }
   }
 
-//Print first [num] bytes stored in EEPROM
-void print_contents(uint16_t num) {
+//print EEPROM contents
+void print_contents(int num) {
   Serial.print("Reading first "); Serial.print(num); Serial.println(" bytes...\n");
-  /*
+  
   for (int i = 0; i <= num - 1; i += 16) {
     uint8_t dataIn[16];
     char buff[100];
@@ -195,28 +203,27 @@ void print_contents(uint16_t num) {
       dataIn[10], dataIn[11], dataIn[12], dataIn[13], dataIn[14], dataIn[15]);
     Serial.println(buff);
     }
-    */
-  for (uint16_t i = 0; i < num; i++) {
+
+  /*
+  for (int i = 0; i < num; i++) {
     uint8_t dataIn = read_EEPROM(i);
     Serial.print(i, HEX);
     Serial.print("  ");
     Serial.println(dataIn, HEX);
     }
+    */
   }
 
-//Write uC into EEPROM
+//program ucode into EEPROM chip
 void write_ucode() {
-  print_init_msg(F_STATES_NUM * INSTRUCTIONS_NUM * STEPS_NUM, PROG_DELAY);
-  
-  for (uint16_t flag = 0; flag < F_STATES_NUM; flag++) {
-    for (uint16_t instruction = 0; instruction < INSTRUCTIONS_NUM; instruction++) {
-      for (uint16_t ustep = 0; ustep < STEPS_NUM; ustep++) {
-        
+  float prog_time = est_prog_time(F_STATES_NUM * INSTRUCTIONS_NUM * STEPS_NUM, PROG_DELAY);
+  print_init_msg(prog_time);
+  for (int flag = 0; flag < F_STATES_NUM; flag++) {
+    for (int instruction = 0; instruction < INSTRUCTIONS_NUM; instruction++) {
+      for (int ustep = 0; ustep < STEPS_NUM; ustep++) {
         uint16_t address = (flag << 11) | (instruction << 3) | ustep;
-        
         if (MSBYTE == true) write_EEPROM(address, (ucode[flag][instruction][ustep] >> 8));
         else write_EEPROM(address, ucode[flag][instruction][ustep]);
-        
         }
       }
     }
@@ -226,14 +233,12 @@ void setup() {
   init_IO();
   init_ucode();
 
-  //clear_EEPROM(); 
-  //write_ucode();
+  if (CLEAR_BEFORE_PROG) clear_EEPROM();
+   
+  write_ucode();
 
   print_contents(EEPROM_MEM);
-  //Serial.println(read_EEPROM(98), HEX);
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-
 }
