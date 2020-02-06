@@ -4,23 +4,27 @@
  * 
  * Program microcode on EEPROM chips for display module.
  * 
- * TODO: incorporate SPI for writing purposes
- * 
  * -Adam Antoshin 2020
 */
+
+#include <SPI.h>
 
 //wipe EEPROM memory before programming
 #define CLEAR_BEFORE_PROG true
 
 //IO parameters
 #define SERIAL_BAUD_RATE 115200
-#define SHIFT_DATA_PIN 2
-#define SHIFT_LATCH_PIN 3
-#define SHIFT_CLOCK_PIN 4
 #define OUTPUT_ENABLE_PIN A0
-#define EEPROM_D0 5
-#define EEPROM_D7 12
-#define WRITE_ENABLE_PIN 13
+#define EEPROM_D0 2
+#define EEPROM_D1 3
+#define EEPROM_D2 4
+#define EEPROM_D3 5
+#define EEPROM_D4 6
+#define EEPROM_D5 7
+#define EEPROM_D6 8
+#define EEPROM_D7 9
+#define SS_595 10
+#define WRITE_ENABLE_PIN A1
 
 //programming parameters
 #define PROG_DELAY 15
@@ -29,13 +33,15 @@
 //7 segment hex table (CC)
 byte sevseg[10] = {0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f};
 
+//EEPROM I/O pins
+byte eeprom_io_pins[8] = {EEPROM_D0, EEPROM_D1, EEPROM_D2, EEPROM_D3, EEPROM_D4, EEPROM_D5, EEPROM_D6, EEPROM_D7}; 
+
 //initialize Arduino IO
 void init_IO() {
   Serial.begin(SERIAL_BAUD_RATE);
-  pinMode(SHIFT_DATA_PIN, OUTPUT);
-  pinMode(SHIFT_LATCH_PIN, OUTPUT);
-  pinMode(SHIFT_CLOCK_PIN, OUTPUT);
   pinMode(OUTPUT_ENABLE_PIN, OUTPUT);
+  digitalWrite(SS_595, HIGH);
+  pinMode(SS_595, OUTPUT);
   digitalWrite(WRITE_ENABLE_PIN, HIGH);
   pinMode(WRITE_ENABLE_PIN, OUTPUT);
   }
@@ -63,19 +69,20 @@ void print_clear_msg(float c_time) {
 //output address with 595 shift registers and either output or input contents
 void set_address(int address, bool output) {
   digitalWrite(OUTPUT_ENABLE_PIN, !output);
-  shiftOut(SHIFT_DATA_PIN, SHIFT_CLOCK_PIN, MSBFIRST, (address >> 8));
-  shiftOut(SHIFT_DATA_PIN, SHIFT_CLOCK_PIN, MSBFIRST, address);
-  digitalWrite(SHIFT_LATCH_PIN, LOW);
-  digitalWrite(SHIFT_LATCH_PIN, HIGH);
-  digitalWrite(SHIFT_LATCH_PIN, LOW);
+  digitalWrite(SS_595, LOW);
+  SPI.transfer(address >> 8);
+  SPI.transfer(address);
+  //shiftOut(SHIFT_DATA_PIN, SHIFT_CLOCK_PIN, MSBFIRST, (address >> 8));
+  //shiftOut(SHIFT_DATA_PIN, SHIFT_CLOCK_PIN, MSBFIRST, address);
+  digitalWrite(SS_595, HIGH);
   }
 
 //write byte to EEPROM memory
 void write_EEPROM(int address, byte data) {
   set_address(address, false);
-  for (int pin = EEPROM_D0; pin <= EEPROM_D7; pin++) {
-    digitalWrite(pin, data & 0x01);
-    pinMode(pin, OUTPUT);
+  for (int i = 0; i < 8; i++) {
+    digitalWrite(eeprom_io_pins[i], data & 0x01);
+    pinMode(eeprom_io_pins[i], OUTPUT);
     data = data >> 1;
     }
   digitalWrite(WRITE_ENABLE_PIN, LOW);
@@ -96,13 +103,13 @@ void clear_EEPROM() {
 
 //read byte from EEPROM memory
 byte read_EEPROM(int address) {
-  for (int pin = EEPROM_D0; pin <= EEPROM_D7; pin++) pinMode(pin, INPUT);
+  for (int i = 0; i < 8; i++) pinMode(eeprom_io_pins[i], INPUT);
   
   set_address(address, true);
   
   byte data = 0;
-  for (int pin = EEPROM_D7; pin >= EEPROM_D0; pin-=1) {
-    data = (data << 1) + digitalRead(pin);
+  for (int i = 7; i >= 0; i--) {
+    data = (data << 1) + digitalRead(eeprom_io_pins[i]);
     }
   return data;
   }
